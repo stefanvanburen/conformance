@@ -200,3 +200,53 @@ testCases:
     expectedResponse:
       error:
         code: CODE_INTERNAL
+  - request:
+      testName: invalid-timeout
+      streamType: STREAM_TYPE_UNARY
+      requestMessages:
+        - "@type": type.googleapis.com/connectrpc.conformance.v1.UnaryRequest
+      rawRequest:
+        verb: POST
+        uri: /connectrpc.conformance.v1.ConformanceService/Unary
+        headers:
+          - name: content-type
+            value: [ "application/grpc-web" ]
+          - name: grpc-timeout
+            value: [ "10x" ]
+        stream:
+          items:
+            - flags: 0
+              payload:
+                binary_message: { "@type": "type.googleapis.com/connectrpc.conformance.v1.UnaryRequest"}
+    otherAllowedErrorCodes:
+      # The gRPC spec does not say which code to use; connect-go uses
+      # invalid_argument and grpc-go uses internal.
+      - CODE_INTERNAL
+    expectedResponse:
+      error:
+        code: CODE_INVALID_ARGUMENT
+  - request:
+      testName: negative-timeout
+      streamType: STREAM_TYPE_UNARY
+      requestMessages:
+        - "@type": type.googleapis.com/connectrpc.conformance.v1.UnaryRequest
+      rawRequest:
+        verb: POST
+        uri: /connectrpc.conformance.v1.ConformanceService/Unary
+        headers:
+          - name: content-type
+            value: [ "application/grpc-web" ]
+          - name: grpc-timeout
+            value: [ "-1m" ]
+        stream:
+          items:
+            - flags: 0
+              payload:
+                binary_message: { "@type": "type.googleapis.com/connectrpc.conformance.v1.UnaryRequest"}
+    otherAllowedErrorCodes:
+      # The gRPC spec does not say which code to use; connect-go uses
+      # invalid_argument and grpc-go uses internal.
+      - CODE_INTERNAL
+    expectedResponse:
+      error:
+        code: CODE_INVALID_ARGUMENT
