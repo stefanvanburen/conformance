@@ -6,3 +6,6 @@
 **/unary/ok-but-no-response
 **/client-stream/multiple-responses
 **/client-stream/ok-but-no-response
+# grpc-go ignores a response body that ends partway through a message
+# prefix and reports the stream as complete.
+**/server-stream/incomplete-message-prefix

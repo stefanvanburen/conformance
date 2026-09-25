@@ -6,3 +6,6 @@
 **/unary/no-request
 **/server-stream/multiple-requests
 **/server-stream/no-request
+# grpc-go ignores a request body that ends partway through a message
+# prefix and handles the request as if the body were complete.
+**/client-stream/incomplete-message-prefix

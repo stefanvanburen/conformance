@@ -261,3 +261,65 @@ testCases:
     expectedResponse:
       error:
         code: CODE_INTERNAL
+
+  - request:
+      testName: server-stream/incomplete-message
+      streamType: STREAM_TYPE_SERVER_STREAM
+      requestMessages:
+        - "@type": type.googleapis.com/connectrpc.conformance.v1.ServerStreamRequest
+          responseDefinition:
+            rawResponse:
+              status_code: 200
+              headers:
+                - name: content-type
+                  value: [ "application/grpc" ]
+              stream:
+                items:
+                  - flags: 0
+                    payload:
+                      binary_message:
+                        "@type": "type.googleapis.com/connectrpc.conformance.v1.ServerStreamResponse"
+                  # The prefix promises more bytes than the body contains.
+                  - flags: 0
+                    length: 10
+                    payload:
+                      binary: "AAAA"
+              trailers:
+                - name: "grpc-status"
+                  value: ["0"]
+    otherAllowedErrorCodes:
+      # The gRPC spec does not say which code to use; connect-go uses
+      # invalid_argument and grpc-go uses internal.
+      - CODE_INTERNAL
+    expectedResponse:
+      payloads:
+        - { }
+      error:
+        code: CODE_INVALID_ARGUMENT
+  - request:
+      testName: server-stream/incomplete-message-prefix
+      streamType: STREAM_TYPE_SERVER_STREAM
+      requestMessages:
+        - "@type": type.googleapis.com/connectrpc.conformance.v1.ServerStreamRequest
+          responseDefinition:
+            rawResponse:
+              status_code: 200
+              headers:
+                - name: content-type
+                  value: [ "application/grpc" ]
+              # An empty message, then the body ends three bytes into the
+              # next five-byte message prefix.
+              unary:
+                binary: "AAAAAAAAAAA="
+              trailers:
+                - name: "grpc-status"
+                  value: ["0"]
+    otherAllowedErrorCodes:
+      # The gRPC spec does not say which code to use; connect-go uses
+      # invalid_argument and grpc-go uses internal.
+      - CODE_INTERNAL
+    expectedResponse:
+      payloads:
+        - { }
+      error:
+        code: CODE_INVALID_ARGUMENT
