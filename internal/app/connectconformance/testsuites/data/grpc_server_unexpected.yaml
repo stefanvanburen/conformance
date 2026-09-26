@@ -218,3 +218,51 @@ testCases:
     expectedResponse:
       error:
         code: CODE_INTERNAL
+  - request:
+      testName: unary/malformed-message
+      streamType: STREAM_TYPE_UNARY
+      requestMessages:
+        - "@type": type.googleapis.com/connectrpc.conformance.v1.UnaryRequest
+      rawRequest:
+        verb: POST
+        uri: /connectrpc.conformance.v1.ConformanceService/Unary
+        headers:
+          - name: content-type
+            value: [ "application/grpc" ]
+          - name: te
+            value: [ "trailers" ]
+        stream:
+          items:
+            - flags: 0
+              payload:
+                binary: "////"
+    otherAllowedErrorCodes:
+      - CODE_INTERNAL
+    expectedResponse:
+      error:
+        code: CODE_INVALID_ARGUMENT
+  - request:
+      testName: unary/malformed-compressed-message
+      streamType: STREAM_TYPE_UNARY
+      requestMessages:
+        - "@type": type.googleapis.com/connectrpc.conformance.v1.UnaryRequest
+      rawRequest:
+        verb: POST
+        uri: /connectrpc.conformance.v1.ConformanceService/Unary
+        headers:
+          - name: content-type
+            value: [ "application/grpc" ]
+          - name: te
+            value: [ "trailers" ]
+          - name: grpc-encoding
+            value: [ "gzip" ]
+        stream:
+          items:
+            - flags: 1
+              payload:
+                binary: "bm90IGd6aXA="
+    otherAllowedErrorCodes:
+      - CODE_INTERNAL
+    expectedResponse:
+      error:
+        code: CODE_INVALID_ARGUMENT
