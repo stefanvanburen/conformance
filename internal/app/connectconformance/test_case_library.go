@@ -251,8 +251,12 @@ func (lib *testCaseLibrary) expandCases(cfgCase configCase, namePrefix []string,
 		testCase.Request.Codec = cfgCase.Codec
 		testCase.Request.Compression = cfgCase.Compression
 		// We always set this. If client-under-test does not support it, we just
-		// won't run the test cases that verify that it's enforced.
-		testCase.Request.MessageReceiveLimit = clientReceiveLimit
+		// won't run the test cases that verify that it's enforced. A test case
+		// may set a lower limit so that a response can exceed it without the
+		// request exceeding the server's limit.
+		if testCase.Request.MessageReceiveLimit == 0 {
+			testCase.Request.MessageReceiveLimit = clientReceiveLimit
+		}
 		lib.testCases[fullName] = testCase
 		lib.testCaseNames[fullName] = simpleName
 	}
