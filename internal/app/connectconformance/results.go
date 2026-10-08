@@ -517,12 +517,12 @@ func checkError(expected, actual *conformancev1.Error, otherCodes []conformancev
 	var errs multiErrors
 	if expected.Code != actual.Code && !slices.Contains(otherCodes, actual.Code) {
 		expectedCodes := expectedCodeString(expected.Code, otherCodes)
-		errs = append(errs, fmt.Errorf("actual error {code: %d (%s), message: %q} does not match expected code %s",
-			actual.Code, connect.Code(actual.Code).String(), actual.GetMessage(), expectedCodes))
+		errs = append(errs, fmt.Errorf("actual error {code: %d (%s), message: %s} does not match expected code %s",
+			actual.Code, connect.Code(actual.Code).String(), displayString(actual.GetMessage()), expectedCodes))
 	}
 	if expected.Message != nil && expected.GetMessage() != actual.GetMessage() {
-		errs = append(errs, fmt.Errorf("actual error {code: %d (%s), message: %q} does not match expected message %q",
-			actual.Code, connect.Code(actual.Code).String(), actual.GetMessage(), expected.GetMessage()))
+		errs = append(errs, fmt.Errorf("actual error {code: %d (%s), message: %s} does not match expected message %s",
+			actual.Code, connect.Code(actual.Code).String(), displayString(actual.GetMessage()), displayString(expected.GetMessage())))
 	}
 	if len(expected.Details) != len(actual.Details) {
 		// TODO: Should this be more lenient? Are we okay with a Connect implementation adding extra
@@ -583,4 +583,18 @@ func expectedCodeString(expectedCode conformancev1.Code, otherAllowedCodes []con
 		return strings.Join(allowedCodes, " ")
 	}
 	return strings.Join(allowedCodes, ", ")
+}
+
+// maxDisplayBytes is how much of an error message a failure shows, so that a
+// large one, such as a message padded to the receive limit, doesn't flood the
+// report.
+const maxDisplayBytes = 128
+
+// displayString quotes s, shortened to maxDisplayBytes bytes and its length
+// when it is longer.
+func displayString(s string) string {
+	if len(s) <= maxDisplayBytes {
+		return strconv.Quote(s)
+	}
+	return fmt.Sprintf("%q… (%d bytes)", s[:maxDisplayBytes], len(s))
 }

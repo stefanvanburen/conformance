@@ -47,6 +47,12 @@ export class UnaryResponseDefinition extends jspb.Message {
   hasRawResponse(): boolean;
   clearRawResponse(): UnaryResponseDefinition;
 
+  getResponseSize(): number;
+  setResponseSize(value: number): UnaryResponseDefinition;
+
+  getErrorMessageSize(): number;
+  setErrorMessageSize(value: number): UnaryResponseDefinition;
+
   getResponseCase(): UnaryResponseDefinition.ResponseCase;
 
   serializeBinary(): Uint8Array;
@@ -65,6 +71,8 @@ export namespace UnaryResponseDefinition {
     responseTrailersList: Array<Header.AsObject>,
     responseDelayMs: number,
     rawResponse?: RawHTTPResponse.AsObject,
+    responseSize: number,
+    errorMessageSize: number,
   }
 
   export enum ResponseCase { 
@@ -103,6 +111,14 @@ export class StreamResponseDefinition extends jspb.Message {
   hasRawResponse(): boolean;
   clearRawResponse(): StreamResponseDefinition;
 
+  getResponseSizesList(): Array<number>;
+  setResponseSizesList(value: Array<number>): StreamResponseDefinition;
+  clearResponseSizesList(): StreamResponseDefinition;
+  addResponseSizes(value: number, index?: number): StreamResponseDefinition;
+
+  getErrorMessageSize(): number;
+  setErrorMessageSize(value: number): StreamResponseDefinition;
+
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): StreamResponseDefinition.AsObject;
   static toObject(includeInstance: boolean, msg: StreamResponseDefinition): StreamResponseDefinition.AsObject;
@@ -119,6 +135,8 @@ export namespace StreamResponseDefinition {
     error?: Error.AsObject,
     responseTrailersList: Array<Header.AsObject>,
     rawResponse?: RawHTTPResponse.AsObject,
+    responseSizesList: Array<number>,
+    errorMessageSize: number,
   }
 }
 
@@ -395,6 +413,11 @@ export class ConformancePayload extends jspb.Message {
   hasRequestInfo(): boolean;
   clearRequestInfo(): ConformancePayload;
 
+  getPadding(): Uint8Array | string;
+  getPadding_asU8(): Uint8Array;
+  getPadding_asB64(): string;
+  setPadding(value: Uint8Array | string): ConformancePayload;
+
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): ConformancePayload.AsObject;
   static toObject(includeInstance: boolean, msg: ConformancePayload): ConformancePayload.AsObject;
@@ -407,6 +430,7 @@ export namespace ConformancePayload {
   export type AsObject = {
     data: Uint8Array | string,
     requestInfo?: ConformancePayload.RequestInfo.AsObject,
+    padding: Uint8Array | string,
   }
 
   export class RequestInfo extends jspb.Message {

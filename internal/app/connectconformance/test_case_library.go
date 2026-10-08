@@ -460,12 +460,29 @@ func parseTestSuites(testFileData map[string][]byte) (map[string]*conformancev1.
 					testFilePath, testCase.Request.TestName)
 			}
 			// The expand request directive uses the proto codec for size calculations, so it doesn't make sense to test with other codecs
-			if len(testCase.ExpandRequests) > 0 && (len(suite.RelevantCodecs) > 1 || !hasCodec(suite.RelevantCodecs, conformancev1.Codec_CODEC_PROTO)) {
+			if len(testCase.ExpandRequests) > 0 && !only(suite.RelevantCodecs, conformancev1.Codec_CODEC_PROTO) {
 				return nil, fmt.Errorf("%s: test case %q specifies expand requests directive, but includes codecs other than CODEC_PROTO",
 					testFilePath, testCase.Request.TestName)
 			}
 			if err := expandRequestData(testCase); err != nil {
 				return nil, fmt.Errorf("%s: failed to expand request sizes as directed for test case %q: %w",
+					testFilePath, testCase.Request.TestName, err)
+			}
+			// Only the reference server pads responses, and it pads them to a size in the proto codec
+			if (len(testCase.ExpandResponses) > 0 || testCase.ExpandError != nil) && suite.Mode != conformancev1.TestSuite_TEST_MODE_CLIENT {
+				return nil, fmt.Errorf("%s: test case %q specifies expand responses or expand error directive, but that is only allowed when mode is TEST_MODE_CLIENT",
+					testFilePath, testCase.Request.TestName)
+			}
+			if len(testCase.ExpandResponses) > 0 && !only(suite.RelevantCodecs, conformancev1.Codec_CODEC_PROTO) {
+				return nil, fmt.Errorf("%s: test case %q specifies expand responses directive, but includes codecs other than CODEC_PROTO",
+					testFilePath, testCase.Request.TestName)
+			}
+			if testCase.ExpandError != nil && !only(suite.RelevantProtocols, conformancev1.Protocol_PROTOCOL_CONNECT) {
+				return nil, fmt.Errorf("%s: test case %q specifies expand error directive, but includes protocols other than PROTOCOL_CONNECT",
+					testFilePath, testCase.Request.TestName)
+			}
+			if err := expandResponseSizes(testCase); err != nil {
+				return nil, fmt.Errorf("%s: failed to expand response sizes as directed for test case %q: %w",
 					testFilePath, testCase.Request.TestName, err)
 			}
 		}
@@ -487,14 +504,13 @@ func expandRequestData(testCase *conformancev1.TestCase) error {
 	}
 
 	for i, expandSz := range testCase.ExpandRequests {
-		if expandSz.SizeRelativeToLimit == nil {
+		totalSize, err := sizeRelativeToLimit(serverReceiveLimit, expandSz)
+		if err != nil {
+			return fmt.Errorf("expand directive #%d: %w", i+1, err)
+		}
+		if totalSize == 0 {
 			// Absent size means do not expand this one.
 			continue
-		}
-		totalSize := serverReceiveLimit + int64(expandSz.GetSizeRelativeToLimit())
-		if totalSize < 0 || totalSize > math.MaxUint32 {
-			return fmt.Errorf("expand directive #%d (%d) results in an invalid request size: %d",
-				i+1, expandSz.GetSizeRelativeToLimit(), totalSize)
 		}
 		concreteReq, err := testCase.Request.RequestMessages[i].UnmarshalNew()
 		if err != nil {
@@ -511,43 +527,99 @@ func expandRequestData(testCase *conformancev1.TestCase) error {
 				i+1, reflectReq.Descriptor().FullName())
 		}
 
-		var adjustCount int
-		for {
-			size := proto.Size(concreteReq)
-			delta := totalSize - int64(size)
-			if delta == 0 {
-				// it's the right size
-				break
-			}
-			if adjustCount >= 2 {
-				// Oof. If we have to adjust it more than 2x, then we're at a weird boundary
-				// condition that can't easily be expanded to the exact size. This is highly
-				// unlikely, but can happen if adding the one byte of padding causes the data
-				// length to suddenly require one more byte to encode as a varint. In that
-				// case, adding one byte of data adds two bytes to the size. So if we were
-				// only one byte away from the desired size, the padded size pushes us one
-				// byte over.
-				return fmt.Errorf("request message #%d: can't pad to exactly %d bytes; closest we can get is %d",
-					i+1, totalSize, size)
-			}
-			// TODO: Do we care if the padding is highly compressible? We'll assume not
-			//       and use zero values for now.
-			bytesVal := reflectReq.Get(field).Bytes()
-			if delta > 0 {
-				padding := make([]byte, delta)
-				bytesVal = append(bytesVal, padding...)
-			} else {
-				bytesVal = bytesVal[:len(bytesVal)+int(delta)]
-			}
-			reflectReq.Set(field, protoreflect.ValueOfBytes(bytesVal))
-			adjustCount++
+		if err := internal.PadBytesField(concreteReq, reflectReq, field, int64(totalSize)); err != nil {
+			return fmt.Errorf("request message #%d: %w", i+1, err)
 		}
-
 		if err := testCase.Request.RequestMessages[i].MarshalFrom(concreteReq); err != nil {
 			return fmt.Errorf("request message #%d: %w", i+1, err)
 		}
 	}
 	return nil
+}
+
+// expandResponseSizes sets the sizes to which the reference server pads the
+// responses and error in the response definition of the given test case, per
+// directives in the expand_responses and expand_error test case fields.
+func expandResponseSizes(testCase *conformancev1.TestCase) error {
+	if len(testCase.ExpandResponses) == 0 && testCase.ExpandError == nil {
+		return nil // nothing to do...
+	}
+	if len(testCase.Request.RequestMessages) == 0 {
+		return errors.New("expand directives require a request message with a response definition")
+	}
+
+	responseSizes := make([]uint32, len(testCase.ExpandResponses))
+	for i, expandSz := range testCase.ExpandResponses {
+		size, err := sizeRelativeToLimit(clientReceiveLimit, expandSz)
+		if err != nil {
+			return fmt.Errorf("expand responses directive #%d: %w", i+1, err)
+		}
+		responseSizes[i] = size
+	}
+	errorMessageSize, err := sizeRelativeToLimit(clientReceiveLimit, testCase.ExpandError)
+	if err != nil {
+		return fmt.Errorf("expand error directive: %w", err)
+	}
+
+	concreteReq, err := testCase.Request.RequestMessages[0].UnmarshalNew()
+	if err != nil {
+		return err
+	}
+	// The error message size is set after the switch, in whichever
+	// definition the request has.
+	var hasError bool
+	var errorMessageSizeField *uint32
+	switch definer := concreteReq.(type) {
+	case unaryResponseDefiner:
+		def := definer.GetResponseDefinition()
+		if def == nil {
+			return errors.New("expand directives require a response definition")
+		}
+		if len(responseSizes) > 1 {
+			return fmt.Errorf("expand responses directive indicates %d responses, but a unary response definition has only one",
+				len(responseSizes))
+		}
+		if len(responseSizes) > 0 {
+			if def.GetError() != nil {
+				return errors.New("expand responses directive requires a response definition without an error")
+			}
+			def.ResponseSize = responseSizes[0]
+		}
+		hasError, errorMessageSizeField = def.GetError() != nil, &def.ErrorMessageSize
+	case streamResponseDefiner:
+		def := definer.GetResponseDefinition()
+		if def == nil {
+			return errors.New("expand directives require a response definition")
+		}
+		if len(responseSizes) > len(def.GetResponseData()) {
+			return fmt.Errorf("expand responses directive indicates %d responses, but the response definition has only %d",
+				len(responseSizes), len(def.GetResponseData()))
+		}
+		def.ResponseSizes = responseSizes
+		hasError, errorMessageSizeField = def.GetError() != nil, &def.ErrorMessageSize
+	default:
+		return fmt.Errorf("message type %T has no response definition", concreteReq)
+	}
+	if errorMessageSize > 0 {
+		if !hasError {
+			return errors.New("expand error directive requires a response definition with an error")
+		}
+		*errorMessageSizeField = errorMessageSize
+	}
+	return testCase.Request.RequestMessages[0].MarshalFrom(concreteReq)
+}
+
+// sizeRelativeToLimit returns the size that expandSz indicates relative to
+// limit, or zero if expandSz has no size.
+func sizeRelativeToLimit(limit int64, expandSz *conformancev1.TestCase_ExpandedSize) (uint32, error) {
+	if expandSz == nil || expandSz.SizeRelativeToLimit == nil {
+		return 0, nil
+	}
+	size := limit + int64(expandSz.GetSizeRelativeToLimit())
+	if size <= 0 || size > math.MaxUint32 {
+		return 0, fmt.Errorf("size relative to limit (%d) results in an invalid size: %d", expandSz.GetSizeRelativeToLimit(), size)
+	}
+	return uint32(size), nil
 }
 
 // populateExpectedResponse populates the response we expected to get back from the server
@@ -563,17 +635,42 @@ func populateExpectedResponse(testCase *conformancev1.TestCase) error {
 	case conformancev1.StreamType_STREAM_TYPE_FULL_DUPLEX_BIDI_STREAM,
 		conformancev1.StreamType_STREAM_TYPE_HALF_DUPLEX_BIDI_STREAM,
 		conformancev1.StreamType_STREAM_TYPE_SERVER_STREAM:
-		return populateExpectedStreamResponse(testCase)
+		if err := populateExpectedStreamResponse(testCase); err != nil {
+			return err
+		}
 
 	case conformancev1.StreamType_STREAM_TYPE_UNARY,
 		conformancev1.StreamType_STREAM_TYPE_CLIENT_STREAM:
-		return populateExpectedUnaryResponse(testCase)
+		if err := populateExpectedUnaryResponse(testCase); err != nil {
+			return err
+		}
 
 	case conformancev1.StreamType_STREAM_TYPE_UNSPECIFIED:
 		return errors.New("stream type is required")
 	default:
 		return fmt.Errorf("stream type %s is not supported", testCase.Request.StreamType)
 	}
+	expectClientLimitError(testCase)
+	return nil
+}
+
+// expectClientLimitError changes the expected response of the given test case
+// when an expand directive makes a response or error exceed the client's
+// message receive limit. The client is expected to receive the responses
+// before that one and then fail with a resource exhausted error.
+func expectClientLimitError(testCase *conformancev1.TestCase) {
+	exceedsAt := slices.IndexFunc(testCase.ExpandResponses, func(expandSz *conformancev1.TestCase_ExpandedSize) bool {
+		return expandSz.GetSizeRelativeToLimit() > 0
+	})
+	if exceedsAt < 0 && testCase.ExpandError.GetSizeRelativeToLimit() > 0 {
+		exceedsAt = len(testCase.ExpectedResponse.Payloads)
+	}
+	if exceedsAt < 0 {
+		return
+	}
+	testCase.ExpectedResponse.Payloads = testCase.ExpectedResponse.Payloads[:exceedsAt]
+	testCase.ExpectedResponse.Error = &conformancev1.Error{Code: conformancev1.Code_CODE_RESOURCE_EXHAUSTED}
+	testCase.ExpectedResponse.ResponseTrailers = nil
 }
 
 // Converts a pointer to a uint32 value into a pointer to an int64.
@@ -583,10 +680,6 @@ func convertToInt64Ptr(num *uint32) *int64 {
 		return nil
 	}
 	return new(int64(*num))
-}
-
-func hasCodec(codecs []conformancev1.Codec, target conformancev1.Codec) bool {
-	return slices.Contains(codecs, target)
 }
 
 func hasRawResponse(reqs []*anypb.Any) bool {
@@ -692,6 +785,7 @@ func populateExpectedUnaryResponse(testCase *conformancev1.TestCase) error {
 	case *conformancev1.UnaryResponseDefinition_Error:
 		// If an error was specified, it should be returned in the response
 		expected.Error = respType.Error
+		internal.PadErrorMessage(expected.Error, def.ErrorMessageSize)
 
 		// Unary responses that return an error should have the request info
 		// in the error details
@@ -758,6 +852,7 @@ func populateExpectedStreamResponse(testCase *conformancev1.TestCase) error {
 		ResponseTrailers: def.ResponseTrailers,
 		Error:            def.Error,
 	}
+	internal.PadErrorMessage(expected.Error, def.ErrorMessageSize)
 
 	// There should be one payload for every ResponseData the client specified
 	expected.Payloads = make([]*conformancev1.ConformancePayload, len(def.ResponseData))

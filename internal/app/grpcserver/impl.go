@@ -76,9 +76,13 @@ func (c *conformanceServiceServer) Unary(
 		return nil, grpcErr
 	}
 
-	return &conformancev1.UnaryResponse{
+	resp := &conformancev1.UnaryResponse{
 		Payload: payload,
-	}, nil
+	}
+	if err := internal.PadPayload(resp, responseDefinition.GetResponseSize()); err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+	return resp, nil
 }
 
 func (c *conformanceServiceServer) ClientStream(
@@ -132,9 +136,13 @@ func (c *conformanceServiceServer) ClientStream(
 		return err
 	}
 
-	return stream.SendAndClose(&conformancev1.ClientStreamResponse{
+	resp := &conformancev1.ClientStreamResponse{
 		Payload: payload,
-	})
+	}
+	if err := internal.PadPayload(resp, responseDefinition.GetResponseSize()); err != nil {
+		return status.Error(codes.Internal, err.Error())
+	}
+	return stream.SendAndClose(resp)
 }
 
 func (c *conformanceServiceServer) ServerStream(
@@ -176,6 +184,9 @@ func (c *conformanceServiceServer) ServerStream(
 				resp.Payload.RequestInfo = requestInfo
 			}
 
+			if err := internal.PadPayload(resp, internal.ResponseSize(responseDefinition, respNum)); err != nil {
+				return status.Error(codes.Internal, err.Error())
+			}
 			time.Sleep(time.Duration(responseDefinition.ResponseDelayMs) * time.Millisecond)
 
 			if err := stream.Send(resp); err != nil {
@@ -195,6 +206,7 @@ func (c *conformanceServiceServer) ServerStream(
 				}
 				responseDefinition.Error.Details = append(responseDefinition.Error.Details, reqInfoAny)
 			}
+			internal.PadErrorMessage(responseDefinition.Error, responseDefinition.GetErrorMessageSize())
 			return grpcutil.ConvertProtoToGrpcError(responseDefinition.Error)
 		}
 	}
@@ -251,7 +263,7 @@ func (c *conformanceServiceServer) BidiStream(
 		}
 
 		// If fullDuplex, then send one of the desired responses each time we get a message on the stream
-		if fullDuplex {
+		if fullDuplex { //nolint:nestif
 			if responseDefinition == nil || respNum >= len(responseDefinition.ResponseData) {
 				// If there are no responses to send, then break the receive loop
 				// and throw the error specified
@@ -277,6 +289,9 @@ func (c *conformanceServiceServer) BidiStream(
 				}
 			}
 			resp.Payload.RequestInfo = requestInfo
+			if err := internal.PadPayload(resp, internal.ResponseSize(responseDefinition, respNum)); err != nil {
+				return status.Error(codes.Internal, err.Error())
+			}
 			time.Sleep(time.Duration(responseDefinition.ResponseDelayMs) * time.Millisecond)
 
 			if err := stream.Send(resp); err != nil {
@@ -308,6 +323,9 @@ func (c *conformanceServiceServer) BidiStream(
 				requestMetadata, _ := metadata.FromIncomingContext(stream.Context())
 				resp.Payload.RequestInfo = createRequestInfo(ctx, requestMetadata, reqs)
 			}
+			if err := internal.PadPayload(resp, internal.ResponseSize(responseDefinition, respNum)); err != nil {
+				return status.Error(codes.Internal, err.Error())
+			}
 			time.Sleep(time.Duration(responseDefinition.ResponseDelayMs) * time.Millisecond)
 
 			if err := stream.Send(resp); err != nil {
@@ -327,6 +345,7 @@ func (c *conformanceServiceServer) BidiStream(
 				}
 				responseDefinition.Error.Details = append(responseDefinition.Error.Details, reqInfoAny)
 			}
+			internal.PadErrorMessage(responseDefinition.Error, responseDefinition.GetErrorMessageSize())
 			return grpcutil.ConvertProtoToGrpcError(responseDefinition.Error)
 		}
 	}
@@ -356,6 +375,7 @@ func parseUnaryResponseDefinition(
 			return nil, status.Error(codes.Internal, err.Error())
 		}
 		respType.Error.Details = append(respType.Error.Details, reqInfoAny)
+		internal.PadErrorMessage(respType.Error, def.GetErrorMessageSize())
 		return nil, grpcutil.ConvertProtoToGrpcError(respType.Error)
 
 	case *conformancev1.UnaryResponseDefinition_ResponseData, nil:

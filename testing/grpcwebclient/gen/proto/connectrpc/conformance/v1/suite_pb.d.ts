@@ -123,6 +123,16 @@ export class TestCase extends jspb.Message {
   clearOtherAllowedErrorCodesList(): TestCase;
   addOtherAllowedErrorCodes(value: connectrpc_conformance_v1_config_pb.Code, index?: number): TestCase;
 
+  getExpandResponsesList(): Array<TestCase.ExpandedSize>;
+  setExpandResponsesList(value: Array<TestCase.ExpandedSize>): TestCase;
+  clearExpandResponsesList(): TestCase;
+  addExpandResponses(value?: TestCase.ExpandedSize, index?: number): TestCase.ExpandedSize;
+
+  getExpandError(): TestCase.ExpandedSize | undefined;
+  setExpandError(value?: TestCase.ExpandedSize): TestCase;
+  hasExpandError(): boolean;
+  clearExpandError(): TestCase;
+
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): TestCase.AsObject;
   static toObject(includeInstance: boolean, msg: TestCase): TestCase.AsObject;
@@ -137,6 +147,8 @@ export namespace TestCase {
     expandRequestsList: Array<TestCase.ExpandedSize.AsObject>,
     expectedResponse?: connectrpc_conformance_v1_client_compat_pb.ClientResponseResult.AsObject,
     otherAllowedErrorCodesList: Array<connectrpc_conformance_v1_config_pb.Code>,
+    expandResponsesList: Array<TestCase.ExpandedSize.AsObject>,
+    expandError?: TestCase.ExpandedSize.AsObject,
   }
 
   export class ExpandedSize extends jspb.Message {

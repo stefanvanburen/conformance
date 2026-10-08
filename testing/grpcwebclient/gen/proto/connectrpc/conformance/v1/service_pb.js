@@ -659,7 +659,9 @@ error: (f = msg.getError()) && proto.connectrpc.conformance.v1.Error.toObject(in
 responseTrailersList: jspb.Message.toObjectList(msg.getResponseTrailersList(),
     proto.connectrpc.conformance.v1.Header.toObject, includeInstance),
 responseDelayMs: jspb.Message.getFieldWithDefault(msg, 6, 0),
-rawResponse: (f = msg.getRawResponse()) && proto.connectrpc.conformance.v1.RawHTTPResponse.toObject(includeInstance, f)
+rawResponse: (f = msg.getRawResponse()) && proto.connectrpc.conformance.v1.RawHTTPResponse.toObject(includeInstance, f),
+responseSize: jspb.Message.getFieldWithDefault(msg, 7, 0),
+errorMessageSize: jspb.Message.getFieldWithDefault(msg, 8, 0)
   };
 
   if (includeInstance) {
@@ -723,6 +725,14 @@ proto.connectrpc.conformance.v1.UnaryResponseDefinition.deserializeBinaryFromRea
       var value = new proto.connectrpc.conformance.v1.RawHTTPResponse;
       reader.readMessage(value,proto.connectrpc.conformance.v1.RawHTTPResponse.deserializeBinaryFromReader);
       msg.setRawResponse(value);
+      break;
+    case 7:
+      var value = /** @type {number} */ (reader.readUint32());
+      msg.setResponseSize(value);
+      break;
+    case 8:
+      var value = /** @type {number} */ (reader.readUint32());
+      msg.setErrorMessageSize(value);
       break;
     default:
       reader.skipField();
@@ -797,6 +807,20 @@ proto.connectrpc.conformance.v1.UnaryResponseDefinition.serializeBinaryToWriter 
       5,
       f,
       proto.connectrpc.conformance.v1.RawHTTPResponse.serializeBinaryToWriter
+    );
+  }
+  f = message.getResponseSize();
+  if (f !== 0) {
+    writer.writeUint32(
+      7,
+      f
+    );
+  }
+  f = message.getErrorMessageSize();
+  if (f !== 0) {
+    writer.writeUint32(
+      8,
+      f
     );
   }
 };
@@ -1030,13 +1054,49 @@ proto.connectrpc.conformance.v1.UnaryResponseDefinition.prototype.hasRawResponse
 };
 
 
+/**
+ * optional uint32 response_size = 7;
+ * @return {number}
+ */
+proto.connectrpc.conformance.v1.UnaryResponseDefinition.prototype.getResponseSize = function() {
+  return /** @type {number} */ (jspb.Message.getFieldWithDefault(this, 7, 0));
+};
+
+
+/**
+ * @param {number} value
+ * @return {!proto.connectrpc.conformance.v1.UnaryResponseDefinition} returns this
+ */
+proto.connectrpc.conformance.v1.UnaryResponseDefinition.prototype.setResponseSize = function(value) {
+  return jspb.Message.setProto3IntField(this, 7, value);
+};
+
+
+/**
+ * optional uint32 error_message_size = 8;
+ * @return {number}
+ */
+proto.connectrpc.conformance.v1.UnaryResponseDefinition.prototype.getErrorMessageSize = function() {
+  return /** @type {number} */ (jspb.Message.getFieldWithDefault(this, 8, 0));
+};
+
+
+/**
+ * @param {number} value
+ * @return {!proto.connectrpc.conformance.v1.UnaryResponseDefinition} returns this
+ */
+proto.connectrpc.conformance.v1.UnaryResponseDefinition.prototype.setErrorMessageSize = function(value) {
+  return jspb.Message.setProto3IntField(this, 8, value);
+};
+
+
 
 /**
  * List of repeated fields within this message type.
  * @private {!Array<number>}
  * @const
  */
-proto.connectrpc.conformance.v1.StreamResponseDefinition.repeatedFields_ = [1,2,5];
+proto.connectrpc.conformance.v1.StreamResponseDefinition.repeatedFields_ = [1,2,5,7];
 
 
 
@@ -1076,7 +1136,9 @@ responseDelayMs: jspb.Message.getFieldWithDefault(msg, 3, 0),
 error: (f = msg.getError()) && proto.connectrpc.conformance.v1.Error.toObject(includeInstance, f),
 responseTrailersList: jspb.Message.toObjectList(msg.getResponseTrailersList(),
     proto.connectrpc.conformance.v1.Header.toObject, includeInstance),
-rawResponse: (f = msg.getRawResponse()) && proto.connectrpc.conformance.v1.RawHTTPResponse.toObject(includeInstance, f)
+rawResponse: (f = msg.getRawResponse()) && proto.connectrpc.conformance.v1.RawHTTPResponse.toObject(includeInstance, f),
+responseSizesList: (f = jspb.Message.getRepeatedField(msg, 7)) == null ? undefined : f,
+errorMessageSize: jspb.Message.getFieldWithDefault(msg, 8, 0)
   };
 
   if (includeInstance) {
@@ -1140,6 +1202,13 @@ proto.connectrpc.conformance.v1.StreamResponseDefinition.deserializeBinaryFromRe
       var value = new proto.connectrpc.conformance.v1.RawHTTPResponse;
       reader.readMessage(value,proto.connectrpc.conformance.v1.RawHTTPResponse.deserializeBinaryFromReader);
       msg.setRawResponse(value);
+      break;
+    case 7:
+      reader.readPackableUint32Into(msg.getResponseSizesList());
+      break;
+    case 8:
+      var value = /** @type {number} */ (reader.readUint32());
+      msg.setErrorMessageSize(value);
       break;
     default:
       reader.skipField();
@@ -1214,6 +1283,20 @@ proto.connectrpc.conformance.v1.StreamResponseDefinition.serializeBinaryToWriter
       6,
       f,
       proto.connectrpc.conformance.v1.RawHTTPResponse.serializeBinaryToWriter
+    );
+  }
+  f = message.getResponseSizesList();
+  if (f.length > 0) {
+    writer.writePackedUint32(
+      7,
+      f
+    );
+  }
+  f = message.getErrorMessageSize();
+  if (f !== 0) {
+    writer.writeUint32(
+      8,
+      f
     );
   }
 };
@@ -1445,6 +1528,61 @@ proto.connectrpc.conformance.v1.StreamResponseDefinition.prototype.clearRawRespo
  */
 proto.connectrpc.conformance.v1.StreamResponseDefinition.prototype.hasRawResponse = function() {
   return jspb.Message.getField(this, 6) != null;
+};
+
+
+/**
+ * repeated uint32 response_sizes = 7;
+ * @return {!Array<number>}
+ */
+proto.connectrpc.conformance.v1.StreamResponseDefinition.prototype.getResponseSizesList = function() {
+  return /** @type {!Array<number>} */ (jspb.Message.getRepeatedField(this, 7));
+};
+
+
+/**
+ * @param {!Array<number>} value
+ * @return {!proto.connectrpc.conformance.v1.StreamResponseDefinition} returns this
+ */
+proto.connectrpc.conformance.v1.StreamResponseDefinition.prototype.setResponseSizesList = function(value) {
+  return jspb.Message.setField(this, 7, value || []);
+};
+
+
+/**
+ * @param {number} value
+ * @param {number=} opt_index
+ * @return {!proto.connectrpc.conformance.v1.StreamResponseDefinition} returns this
+ */
+proto.connectrpc.conformance.v1.StreamResponseDefinition.prototype.addResponseSizes = function(value, opt_index) {
+  return jspb.Message.addToRepeatedField(this, 7, value, opt_index);
+};
+
+
+/**
+ * Clears the list making it empty but non-null.
+ * @return {!proto.connectrpc.conformance.v1.StreamResponseDefinition} returns this
+ */
+proto.connectrpc.conformance.v1.StreamResponseDefinition.prototype.clearResponseSizesList = function() {
+  return this.setResponseSizesList([]);
+};
+
+
+/**
+ * optional uint32 error_message_size = 8;
+ * @return {number}
+ */
+proto.connectrpc.conformance.v1.StreamResponseDefinition.prototype.getErrorMessageSize = function() {
+  return /** @type {number} */ (jspb.Message.getFieldWithDefault(this, 8, 0));
+};
+
+
+/**
+ * @param {number} value
+ * @return {!proto.connectrpc.conformance.v1.StreamResponseDefinition} returns this
+ */
+proto.connectrpc.conformance.v1.StreamResponseDefinition.prototype.setErrorMessageSize = function(value) {
+  return jspb.Message.setProto3IntField(this, 8, value);
 };
 
 
@@ -3493,7 +3631,8 @@ proto.connectrpc.conformance.v1.ConformancePayload.prototype.toObject = function
 proto.connectrpc.conformance.v1.ConformancePayload.toObject = function(includeInstance, msg) {
   var f, obj = {
 data: msg.getData_asB64(),
-requestInfo: (f = msg.getRequestInfo()) && proto.connectrpc.conformance.v1.ConformancePayload.RequestInfo.toObject(includeInstance, f)
+requestInfo: (f = msg.getRequestInfo()) && proto.connectrpc.conformance.v1.ConformancePayload.RequestInfo.toObject(includeInstance, f),
+padding: msg.getPadding_asB64()
   };
 
   if (includeInstance) {
@@ -3539,6 +3678,10 @@ proto.connectrpc.conformance.v1.ConformancePayload.deserializeBinaryFromReader =
       reader.readMessage(value,proto.connectrpc.conformance.v1.ConformancePayload.RequestInfo.deserializeBinaryFromReader);
       msg.setRequestInfo(value);
       break;
+    case 3:
+      var value = /** @type {!Uint8Array} */ (reader.readBytes());
+      msg.setPadding(value);
+      break;
     default:
       reader.skipField();
       break;
@@ -3581,6 +3724,13 @@ proto.connectrpc.conformance.v1.ConformancePayload.serializeBinaryToWriter = fun
       2,
       f,
       proto.connectrpc.conformance.v1.ConformancePayload.RequestInfo.serializeBinaryToWriter
+    );
+  }
+  f = message.getPadding_asU8();
+  if (f.length > 0) {
+    writer.writeBytes(
+      3,
+      f
     );
   }
 };
@@ -4134,6 +4284,48 @@ proto.connectrpc.conformance.v1.ConformancePayload.prototype.clearRequestInfo = 
  */
 proto.connectrpc.conformance.v1.ConformancePayload.prototype.hasRequestInfo = function() {
   return jspb.Message.getField(this, 2) != null;
+};
+
+
+/**
+ * optional bytes padding = 3;
+ * @return {!(string|Uint8Array)}
+ */
+proto.connectrpc.conformance.v1.ConformancePayload.prototype.getPadding = function() {
+  return /** @type {!(string|Uint8Array)} */ (jspb.Message.getFieldWithDefault(this, 3, ""));
+};
+
+
+/**
+ * optional bytes padding = 3;
+ * This is a type-conversion wrapper around `getPadding()`
+ * @return {string}
+ */
+proto.connectrpc.conformance.v1.ConformancePayload.prototype.getPadding_asB64 = function() {
+  return /** @type {string} */ (jspb.Message.bytesAsB64(
+      this.getPadding()));
+};
+
+
+/**
+ * optional bytes padding = 3;
+ * Note that Uint8Array is not supported on all browsers.
+ * @see http://caniuse.com/Uint8Array
+ * This is a type-conversion wrapper around `getPadding()`
+ * @return {!Uint8Array}
+ */
+proto.connectrpc.conformance.v1.ConformancePayload.prototype.getPadding_asU8 = function() {
+  return /** @type {!Uint8Array} */ (jspb.Message.bytesAsU8(
+      this.getPadding()));
+};
+
+
+/**
+ * @param {!(string|Uint8Array)} value
+ * @return {!proto.connectrpc.conformance.v1.ConformancePayload} returns this
+ */
+proto.connectrpc.conformance.v1.ConformancePayload.prototype.setPadding = function(value) {
+  return jspb.Message.setProto3BytesField(this, 3, value);
 };
 
 

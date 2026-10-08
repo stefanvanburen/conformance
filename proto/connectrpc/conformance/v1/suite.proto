@@ -116,8 +116,8 @@ message TestCase {
   message ExpandedSize {
     // The size, in bytes, relative to the limit. For example, to expand to a
     // size that is exactly equal to the limit, this should be set to zero.
-    // Any value greater than zero indicates that the request size will be that
-    // many bytes over the limit.
+    // Any value greater than zero indicates that the size will be that many
+    // bytes over the limit.
     optional int32 size_relative_to_limit = 1;
   }
 
@@ -148,4 +148,27 @@ message TestCase {
   // expected_response. As long as the actual error's code matches any of these, the
   // error is considered conformant, and the test case can pass.
   repeated Code other_allowed_error_codes = 4;
+
+  // To test a client's message receive limit without the request having to
+  // carry a large response, this value can be specified. When non-empty, this
+  // value should have no more entries than there are responses in the response
+  // definition. The first value is applied to the first response, and so on.
+  // For each entry, if the size is present, it is added to the limit on message
+  // size that the client will accept. The reference server sets the padding
+  // field of that response's payload so that the serialized response message
+  // is exactly that sum.
+  //
+  // This is only valid in TEST_MODE_CLIENT test suites whose only codec is
+  // CODEC_PROTO.
+  repeated ExpandedSize expand_responses = 5;
+
+  // To test a client's message receive limit against an error, this value can
+  // be specified. Its size is added to the limit on message size that the
+  // client will accept, and the reference server pads the message of the error
+  // in the response definition with "x" characters to that many bytes.
+  //
+  // This is only valid in TEST_MODE_CLIENT test suites whose only protocol is
+  // PROTOCOL_CONNECT, which is the only protocol that sends an error in a
+  // message rather than in headers or trailers.
+  ExpandedSize expand_error = 6;
 }

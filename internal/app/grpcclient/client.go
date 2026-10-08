@@ -170,6 +170,9 @@ func invoke(ctx context.Context, req *conformancev1.ClientCompatRequest, trace *
 	if req.Compression == conformancev1.Compression_COMPRESSION_GZIP {
 		dialOpts = append(dialOpts, grpc.WithDefaultCallOptions(grpc.UseCompressor(gzip.Name)))
 	}
+	if req.MessageReceiveLimit > 0 {
+		dialOpts = append(dialOpts, grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(int(req.MessageReceiveLimit))))
+	}
 
 	clientConn, err := grpc.NewClient(
 		net.JoinHostPort(req.Host, strconv.FormatUint(uint64(req.Port), 10)),

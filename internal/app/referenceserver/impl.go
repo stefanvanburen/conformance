@@ -78,7 +78,11 @@ type hasUnaryResponseDefinition[T any] interface {
 	GetResponseDefinition() *conformancev1.UnaryResponseDefinition
 }
 
-func doUnary[ReqT, RespT any, Req hasUnaryResponseDefinition[ReqT]](
+func doUnary[ReqT, RespT any, Req hasUnaryResponseDefinition[ReqT], Resp interface {
+	*RespT
+	proto.Message
+	GetPayload() *conformancev1.ConformancePayload
+}](
 	ctx context.Context,
 	req *connect.Request[ReqT],
 	referenceMode bool,
@@ -104,7 +108,11 @@ func doUnary[ReqT, RespT any, Req hasUnaryResponseDefinition[ReqT]](
 		return nil, connectErr
 	}
 
-	resp := connect.NewResponse(makeResp(payload))
+	respMsg := makeResp(payload)
+	if err := internal.PadPayload(Resp(respMsg), msg.GetResponseDefinition().GetResponseSize()); err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	resp := connect.NewResponse(respMsg)
 
 	if msg.GetResponseDefinition() != nil {
 		internal.AddHeaders(msg.GetResponseDefinition().ResponseHeaders, resp.Header())
@@ -164,6 +172,9 @@ func (s *conformanceServer) ClientStream(
 	resp := connect.NewResponse(&conformancev1.ClientStreamResponse{
 		Payload: payload,
 	})
+	if err := internal.PadPayload(resp.Msg, responseDefinition.GetResponseSize()); err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
 
 	if responseDefinition != nil {
 		internal.AddHeaders(responseDefinition.ResponseHeaders, resp.Header())
@@ -219,6 +230,10 @@ func (s *conformanceServer) ServerStream(
 				resp.Payload.RequestInfo = createRequestInfo(ctx, req.Header(), req.Peer().Query, []*anypb.Any{msgAsAny})
 			}
 
+			if err := internal.PadPayload(resp, internal.ResponseSize(responseDefinition, respNum)); err != nil {
+				return connect.NewError(connect.CodeInternal, err)
+			}
+
 			// If a response delay was specified, sleep for that amount of ms before responding
 			time.Sleep(responseDelay)
 
@@ -239,6 +254,7 @@ func (s *conformanceServer) ServerStream(
 				}
 				responseDefinition.Error.Details = append(responseDefinition.Error.Details, reqInfoAny)
 			}
+			internal.PadErrorMessage(responseDefinition.Error, responseDefinition.GetErrorMessageSize())
 			return internal.ConvertProtoToConnectError(responseDefinition.Error)
 		}
 	}
@@ -303,7 +319,7 @@ func (s *conformanceServer) BidiStream(
 		}
 
 		// If fullDuplex, then send one of the desired responses each time we get a message on the stream
-		if fullDuplex {
+		if fullDuplex { //nolint:nestif
 			if respNum >= len(responseDefinition.GetResponseData()) {
 				// If there are no responses to send, then break the receive loop
 				// and throw the error specified
@@ -329,6 +345,10 @@ func (s *conformanceServer) BidiStream(
 				}
 			}
 			resp.Payload.RequestInfo = requestInfo
+
+			if err := internal.PadPayload(resp, internal.ResponseSize(responseDefinition, respNum)); err != nil {
+				return connect.NewError(connect.CodeInternal, err)
+			}
 
 			// If a response delay was specified, sleep for that amount of ms before responding
 			time.Sleep(responseDelay)
@@ -373,6 +393,10 @@ func (s *conformanceServer) BidiStream(
 				)
 			}
 
+			if err := internal.PadPayload(resp, internal.ResponseSize(responseDefinition, respNum)); err != nil {
+				return connect.NewError(connect.CodeInternal, err)
+			}
+
 			// If a response delay was specified, sleep for that amount of ms before responding
 			time.Sleep(responseDelay)
 
@@ -392,6 +416,7 @@ func (s *conformanceServer) BidiStream(
 				}
 				responseDefinition.Error.Details = append(responseDefinition.Error.Details, reqInfoAny)
 			}
+			internal.PadErrorMessage(responseDefinition.Error, responseDefinition.GetErrorMessageSize())
 			return internal.ConvertProtoToConnectError(responseDefinition.Error)
 		}
 	}
@@ -430,6 +455,7 @@ func parseUnaryResponseDefinition(
 			return nil, connect.NewError(connect.CodeInternal, err)
 		}
 		respType.Error.Details = append(respType.Error.Details, reqInfoAny)
+		internal.PadErrorMessage(respType.Error, def.GetErrorMessageSize())
 
 		connectErr := internal.ConvertProtoToConnectError(respType.Error)
 

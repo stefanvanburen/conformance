@@ -831,7 +831,7 @@ func TestExpandRequestData(t *testing.T) {
 					{"size_relative_to_limit":-300000}
 				]
 			}`,
-			expectErr: "expand directive #1 (-300000) results in an invalid request size: -95200",
+			expectErr: "expand directive #1: size relative to limit (-300000) results in an invalid size: -95200",
 		},
 	}
 	for _, testCase := range testCases {
@@ -857,6 +857,249 @@ func TestExpandRequestData(t *testing.T) {
 					expectedSize = initialSizes[i]
 				}
 				require.Len(t, req.Value, expectedSize)
+			}
+		})
+	}
+}
+
+func TestExpandResponseSizes(t *testing.T) {
+	t.Parallel()
+	testCases := []struct {
+		name         string
+		testCaseJSON string
+		expectErr    string
+		expectSizes  []uint32
+		expectErrMsg uint32
+	}{
+		{
+			name: "unary",
+			testCaseJSON: `{
+				"request": {
+					"requestMessages":[
+						{
+							"@type": "type.googleapis.com/connectrpc.conformance.v1.UnaryRequest",
+							"responseDefinition": {"responseData": "abcdefgh"}
+						}
+					]
+				},
+				"expandResponses":[{"sizeRelativeToLimit":-3}]
+			}`,
+			expectSizes: []uint32{1024*1024 - 3},
+		},
+		{
+			name: "unary-error",
+			testCaseJSON: `{
+				"request": {
+					"requestMessages":[
+						{
+							"@type": "type.googleapis.com/connectrpc.conformance.v1.UnaryRequest",
+							"responseDefinition": {"error": {"code": "CODE_INTERNAL"}}
+						}
+					]
+				},
+				"expandError":{"sizeRelativeToLimit":1}
+			}`,
+			expectErrMsg: 1024*1024 + 1,
+		},
+		{
+			name: "server-stream",
+			testCaseJSON: `{
+				"request": {
+					"requestMessages":[
+						{
+							"@type": "type.googleapis.com/connectrpc.conformance.v1.ServerStreamRequest",
+							"responseDefinition": {"responseData": ["abcd", "efgh", "ijkl"]}
+						}
+					]
+				},
+				"expandResponses":[{}, {"sizeRelativeToLimit":1}]
+			}`,
+			expectSizes: []uint32{0, 1024*1024 + 1},
+		},
+		{
+			name: "unary-too-many-responses",
+			testCaseJSON: `{
+				"request": {
+					"requestMessages":[
+						{
+							"@type": "type.googleapis.com/connectrpc.conformance.v1.UnaryRequest",
+							"responseDefinition": {"responseData": "abcdefgh"}
+						}
+					]
+				},
+				"expandResponses":[{"sizeRelativeToLimit":0}, {"sizeRelativeToLimit":0}]
+			}`,
+			expectErr: "a unary response definition has only one",
+		},
+		{
+			name: "server-stream-too-many-responses",
+			testCaseJSON: `{
+				"request": {
+					"requestMessages":[
+						{
+							"@type": "type.googleapis.com/connectrpc.conformance.v1.ServerStreamRequest",
+							"responseDefinition": {"responseData": ["abcd"]}
+						}
+					]
+				},
+				"expandResponses":[{"sizeRelativeToLimit":0}, {"sizeRelativeToLimit":0}]
+			}`,
+			expectErr: "the response definition has only 1",
+		},
+		{
+			name: "error-without-error",
+			testCaseJSON: `{
+				"request": {
+					"requestMessages":[
+						{
+							"@type": "type.googleapis.com/connectrpc.conformance.v1.UnaryRequest",
+							"responseDefinition": {"responseData": "abcdefgh"}
+						}
+					]
+				},
+				"expandError":{"sizeRelativeToLimit":1}
+			}`,
+			expectErr: "requires a response definition with an error",
+		},
+		{
+			name: "invalid-size",
+			testCaseJSON: `{
+				"request": {
+					"requestMessages":[
+						{
+							"@type": "type.googleapis.com/connectrpc.conformance.v1.UnaryRequest",
+							"responseDefinition": {"responseData": "abcdefgh"}
+						}
+					]
+				},
+				"expandResponses":[{"sizeRelativeToLimit":-1048576}]
+			}`,
+			expectErr: "results in an invalid size",
+		},
+	}
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+			var testCaseProto conformancev1.TestCase
+			require.NoError(t, protojson.Unmarshal([]byte(testCase.testCaseJSON), &testCaseProto))
+			err := expandResponseSizes(&testCaseProto)
+			if testCase.expectErr != "" {
+				require.ErrorContains(t, err, testCase.expectErr)
+				return
+			}
+			require.NoError(t, err)
+			msg, err := testCaseProto.Request.RequestMessages[0].UnmarshalNew()
+			require.NoError(t, err)
+			switch msg := msg.(type) {
+			case unaryResponseDefiner:
+				var expectSize uint32
+				if len(testCase.expectSizes) > 0 {
+					expectSize = testCase.expectSizes[0]
+				}
+				assert.Equal(t, expectSize, msg.GetResponseDefinition().GetResponseSize())
+				assert.Equal(t, testCase.expectErrMsg, msg.GetResponseDefinition().GetErrorMessageSize())
+			case streamResponseDefiner:
+				assert.Equal(t, testCase.expectSizes, msg.GetResponseDefinition().GetResponseSizes())
+				assert.Equal(t, testCase.expectErrMsg, msg.GetResponseDefinition().GetErrorMessageSize())
+			default:
+				t.Fatalf("unexpected request type %T", msg)
+			}
+		})
+	}
+}
+
+func TestPopulateExpectedResponse_ClientLimit(t *testing.T) {
+	t.Parallel()
+	testCases := []struct {
+		name          string
+		testCaseJSON  string
+		expectPayload int
+		expectCode    conformancev1.Code
+		expectMessage string
+	}{
+		{
+			name: "server-stream-within-limit",
+			testCaseJSON: `{
+				"request": {
+					"streamType": "STREAM_TYPE_SERVER_STREAM",
+					"requestMessages":[
+						{
+							"@type": "type.googleapis.com/connectrpc.conformance.v1.ServerStreamRequest",
+							"responseDefinition": {"responseData": ["abcd", "efgh"]}
+						}
+					]
+				},
+				"expandResponses":[{"sizeRelativeToLimit":0}, {"sizeRelativeToLimit":0}]
+			}`,
+			expectPayload: 2,
+		},
+		{
+			name: "server-stream-subsequent-exceeds",
+			testCaseJSON: `{
+				"request": {
+					"streamType": "STREAM_TYPE_SERVER_STREAM",
+					"requestMessages":[
+						{
+							"@type": "type.googleapis.com/connectrpc.conformance.v1.ServerStreamRequest",
+							"responseDefinition": {
+								"responseData": ["abcd", "efgh"],
+								"responseTrailers": [{"name": "x-trailer", "value": ["v"]}]
+							}
+						}
+					]
+				},
+				"expandResponses":[{"sizeRelativeToLimit":0}, {"sizeRelativeToLimit":1}]
+			}`,
+			expectPayload: 1,
+			expectCode:    conformancev1.Code_CODE_RESOURCE_EXHAUSTED,
+		},
+		{
+			name: "unary-error-within-limit",
+			testCaseJSON: `{
+				"request": {
+					"streamType": "STREAM_TYPE_UNARY",
+					"requestMessages":[
+						{
+							"@type": "type.googleapis.com/connectrpc.conformance.v1.UnaryRequest",
+							"responseDefinition": {"error": {"code": "CODE_INTERNAL", "message": "oops"}}
+						}
+					]
+				},
+				"expandError":{"sizeRelativeToLimit":-1048566}
+			}`,
+			expectCode:    conformancev1.Code_CODE_INTERNAL,
+			expectMessage: "oopsxxxxxx",
+		},
+		{
+			name: "unary-error-exceeds",
+			testCaseJSON: `{
+				"request": {
+					"streamType": "STREAM_TYPE_UNARY",
+					"requestMessages":[
+						{
+							"@type": "type.googleapis.com/connectrpc.conformance.v1.UnaryRequest",
+							"responseDefinition": {"error": {"code": "CODE_INTERNAL", "message": "oops"}}
+						}
+					]
+				},
+				"expandError":{"sizeRelativeToLimit":1}
+			}`,
+			expectCode: conformancev1.Code_CODE_RESOURCE_EXHAUSTED,
+		},
+	}
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+			var testCaseProto conformancev1.TestCase
+			require.NoError(t, protojson.Unmarshal([]byte(testCase.testCaseJSON), &testCaseProto))
+			require.NoError(t, expandResponseSizes(&testCaseProto))
+			require.NoError(t, populateExpectedResponse(&testCaseProto))
+			expected := testCaseProto.ExpectedResponse
+			assert.Len(t, expected.Payloads, testCase.expectPayload)
+			assert.Equal(t, testCase.expectCode, expected.GetError().GetCode())
+			assert.Equal(t, testCase.expectMessage, expected.GetError().GetMessage())
+			if testCase.expectCode == conformancev1.Code_CODE_RESOURCE_EXHAUSTED {
+				assert.Empty(t, expected.ResponseTrailers)
 			}
 		})
 	}

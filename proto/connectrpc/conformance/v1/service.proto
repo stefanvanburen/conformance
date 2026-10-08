@@ -167,6 +167,23 @@ message UnaryResponseDefinition {
   //
   // For test definitions, this field should be used instead of the above fields.
   RawHTTPResponse raw_response = 5;
+
+  // This field is only used by the reference server. If you are implementing a
+  // server under test, you can ignore this field.
+  //
+  // When non-zero, the reference server sets the padding field of the response
+  // payload so that the serialized response message is exactly this many bytes.
+  // Test definitions should use TestCase.expand_responses instead of setting
+  // this field.
+  uint32 response_size = 7;
+
+  // This field is only used by the reference server. If you are implementing a
+  // server under test, you can ignore this field.
+  //
+  // When non-zero, the reference server pads the message of the error with
+  // "x" characters so that it is this many bytes long. Test definitions should
+  // use TestCase.expand_error instead of setting this field.
+  uint32 error_message_size = 8;
 }
 
 // A definition of responses to be sent from a streaming endpoint.
@@ -197,6 +214,24 @@ message StreamResponseDefinition {
   //
   // For test definitions, this field should be used instead of the above fields.
   RawHTTPResponse raw_response = 6;
+
+  // This field is only used by the reference server. If you are implementing a
+  // server under test, you can ignore this field.
+  //
+  // When non-empty, each entry applies to the response with the same index in
+  // response_data. For each non-zero entry, the reference server sets the
+  // padding field of that response's payload so that the serialized response
+  // message is exactly that many bytes. Test definitions should use
+  // TestCase.expand_responses instead of setting this field.
+  repeated uint32 response_sizes = 7;
+
+  // This field is only used by the reference server. If you are implementing a
+  // server under test, you can ignore this field.
+  //
+  // When non-zero, the reference server pads the message of the error with
+  // "x" characters so that it is this many bytes long. Test definitions should
+  // use TestCase.expand_error instead of setting this field.
+  uint32 error_message_size = 8;
 }
 
 message UnaryRequest {
@@ -295,6 +330,10 @@ message ConformancePayload {
 
   // Echoes back information about the request stream observed so far.
   RequestInfo request_info = 2;
+
+  // Additional data. Only used by the reference server to pad the response size
+  // to test large response messages. Servers under test should not set it.
+  bytes padding = 3;
   message RequestInfo {
     // The server echos back the request headers it observed here.
     repeated Header request_headers = 1;

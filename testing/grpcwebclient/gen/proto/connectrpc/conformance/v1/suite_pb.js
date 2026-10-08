@@ -687,7 +687,7 @@ proto.connectrpc.conformance.v1.TestSuite.prototype.setReliesOnMessageReceiveLim
  * @private {!Array<number>}
  * @const
  */
-proto.connectrpc.conformance.v1.TestCase.repeatedFields_ = [2,4];
+proto.connectrpc.conformance.v1.TestCase.repeatedFields_ = [2,4,5];
 
 
 
@@ -724,7 +724,10 @@ request: (f = msg.getRequest()) && connectrpc_conformance_v1_client_compat_pb.Cl
 expandRequestsList: jspb.Message.toObjectList(msg.getExpandRequestsList(),
     proto.connectrpc.conformance.v1.TestCase.ExpandedSize.toObject, includeInstance),
 expectedResponse: (f = msg.getExpectedResponse()) && connectrpc_conformance_v1_client_compat_pb.ClientResponseResult.toObject(includeInstance, f),
-otherAllowedErrorCodesList: (f = jspb.Message.getRepeatedField(msg, 4)) == null ? undefined : f
+otherAllowedErrorCodesList: (f = jspb.Message.getRepeatedField(msg, 4)) == null ? undefined : f,
+expandResponsesList: jspb.Message.toObjectList(msg.getExpandResponsesList(),
+    proto.connectrpc.conformance.v1.TestCase.ExpandedSize.toObject, includeInstance),
+expandError: (f = msg.getExpandError()) && proto.connectrpc.conformance.v1.TestCase.ExpandedSize.toObject(includeInstance, f)
   };
 
   if (includeInstance) {
@@ -778,6 +781,16 @@ proto.connectrpc.conformance.v1.TestCase.deserializeBinaryFromReader = function(
       break;
     case 4:
       reader.readPackableEnumInto(msg.getOtherAllowedErrorCodesList());
+      break;
+    case 5:
+      var value = new proto.connectrpc.conformance.v1.TestCase.ExpandedSize;
+      reader.readMessage(value,proto.connectrpc.conformance.v1.TestCase.ExpandedSize.deserializeBinaryFromReader);
+      msg.addExpandResponses(value);
+      break;
+    case 6:
+      var value = new proto.connectrpc.conformance.v1.TestCase.ExpandedSize;
+      reader.readMessage(value,proto.connectrpc.conformance.v1.TestCase.ExpandedSize.deserializeBinaryFromReader);
+      msg.setExpandError(value);
       break;
     default:
       reader.skipField();
@@ -837,6 +850,22 @@ proto.connectrpc.conformance.v1.TestCase.serializeBinaryToWriter = function(mess
     writer.writePackedEnum(
       4,
       f
+    );
+  }
+  f = message.getExpandResponsesList();
+  if (f.length > 0) {
+    writer.writeRepeatedMessage(
+      5,
+      f,
+      proto.connectrpc.conformance.v1.TestCase.ExpandedSize.serializeBinaryToWriter
+    );
+  }
+  f = message.getExpandError();
+  if (f != null) {
+    writer.writeMessage(
+      6,
+      f,
+      proto.connectrpc.conformance.v1.TestCase.ExpandedSize.serializeBinaryToWriter
     );
   }
 };
@@ -1136,6 +1165,81 @@ proto.connectrpc.conformance.v1.TestCase.prototype.addOtherAllowedErrorCodes = f
  */
 proto.connectrpc.conformance.v1.TestCase.prototype.clearOtherAllowedErrorCodesList = function() {
   return this.setOtherAllowedErrorCodesList([]);
+};
+
+
+/**
+ * repeated ExpandedSize expand_responses = 5;
+ * @return {!Array<!proto.connectrpc.conformance.v1.TestCase.ExpandedSize>}
+ */
+proto.connectrpc.conformance.v1.TestCase.prototype.getExpandResponsesList = function() {
+  return /** @type{!Array<!proto.connectrpc.conformance.v1.TestCase.ExpandedSize>} */ (
+    jspb.Message.getRepeatedWrapperField(this, proto.connectrpc.conformance.v1.TestCase.ExpandedSize, 5));
+};
+
+
+/**
+ * @param {!Array<!proto.connectrpc.conformance.v1.TestCase.ExpandedSize>} value
+ * @return {!proto.connectrpc.conformance.v1.TestCase} returns this
+*/
+proto.connectrpc.conformance.v1.TestCase.prototype.setExpandResponsesList = function(value) {
+  return jspb.Message.setRepeatedWrapperField(this, 5, value);
+};
+
+
+/**
+ * @param {!proto.connectrpc.conformance.v1.TestCase.ExpandedSize=} opt_value
+ * @param {number=} opt_index
+ * @return {!proto.connectrpc.conformance.v1.TestCase.ExpandedSize}
+ */
+proto.connectrpc.conformance.v1.TestCase.prototype.addExpandResponses = function(opt_value, opt_index) {
+  return jspb.Message.addToRepeatedWrapperField(this, 5, opt_value, proto.connectrpc.conformance.v1.TestCase.ExpandedSize, opt_index);
+};
+
+
+/**
+ * Clears the list making it empty but non-null.
+ * @return {!proto.connectrpc.conformance.v1.TestCase} returns this
+ */
+proto.connectrpc.conformance.v1.TestCase.prototype.clearExpandResponsesList = function() {
+  return this.setExpandResponsesList([]);
+};
+
+
+/**
+ * optional ExpandedSize expand_error = 6;
+ * @return {?proto.connectrpc.conformance.v1.TestCase.ExpandedSize}
+ */
+proto.connectrpc.conformance.v1.TestCase.prototype.getExpandError = function() {
+  return /** @type{?proto.connectrpc.conformance.v1.TestCase.ExpandedSize} */ (
+    jspb.Message.getWrapperField(this, proto.connectrpc.conformance.v1.TestCase.ExpandedSize, 6));
+};
+
+
+/**
+ * @param {?proto.connectrpc.conformance.v1.TestCase.ExpandedSize|undefined} value
+ * @return {!proto.connectrpc.conformance.v1.TestCase} returns this
+*/
+proto.connectrpc.conformance.v1.TestCase.prototype.setExpandError = function(value) {
+  return jspb.Message.setWrapperField(this, 6, value);
+};
+
+
+/**
+ * Clears the message field making it undefined.
+ * @return {!proto.connectrpc.conformance.v1.TestCase} returns this
+ */
+proto.connectrpc.conformance.v1.TestCase.prototype.clearExpandError = function() {
+  return this.setExpandError(undefined);
+};
+
+
+/**
+ * Returns whether this field is set.
+ * @return {boolean}
+ */
+proto.connectrpc.conformance.v1.TestCase.prototype.hasExpandError = function() {
+  return jspb.Message.getField(this, 6) != null;
 };
 
 

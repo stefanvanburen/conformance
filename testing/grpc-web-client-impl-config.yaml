@@ -8,6 +8,7 @@ features:
   compressions:
     - COMPRESSION_IDENTITY
   supportsTls: false
+  supportsMessageReceiveLimit: false
   streamTypes:
     - STREAM_TYPE_UNARY
     - STREAM_TYPE_SERVER_STREAM
