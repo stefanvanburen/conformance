@@ -4,3 +4,7 @@ Connect Unexpected Responses/**/server-stream/incomplete-message
 Connect Unexpected Responses/**/server-stream/incomplete-message-prefix
 gRPC Unexpected Responses/**/server-stream/incomplete-message
 gRPC Unexpected Responses/**/server-stream/incomplete-message-prefix
+# connect-go reports a grpc-message that fails to percent-decode as internal
+# with an empty message, instead of keeping the status and raw message.
+gRPC Unexpected Responses/**/invalid-percent-encoded-message
+gRPC-Web Unexpected Responses/**/trailers-in-body/invalid-percent-encoded-message

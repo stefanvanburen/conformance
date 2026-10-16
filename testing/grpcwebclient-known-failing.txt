@@ -41,3 +41,7 @@ HTTP to RPC Code Mapping/**/too-many-requests
 # instead maps them to "aborted" and "failed_precondition" respectively.
 HTTP to RPC Code Mapping/**/conflict
 HTTP to RPC Code Mapping/**/precondition-failed
+
+# grpc-web throws an uncaught URIError when grpc-message fails to
+# percent-decode, so the call never completes.
+gRPC-Web Unexpected Responses/**/trailers-in-body/invalid-percent-encoded-message

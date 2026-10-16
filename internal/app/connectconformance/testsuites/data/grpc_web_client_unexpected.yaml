@@ -390,3 +390,26 @@ testCases:
     expectedResponse:
       error:
         code: CODE_INTERNAL
+  - request:
+      testName: trailers-in-body/invalid-percent-encoded-message
+      streamType: STREAM_TYPE_UNARY
+      requestMessages:
+        - "@type": type.googleapis.com/connectrpc.conformance.v1.UnaryRequest
+          responseDefinition:
+            rawResponse:
+              status_code: 200
+              headers:
+                - name: content-type
+                  value: [ "application/grpc-web" ]
+              stream:
+                items:
+                  # The bare "%" isn't valid percent-encoding. The gRPC spec
+                  # says clients must not error or throw away the message when
+                  # decoding fails.
+                  - flags: 128
+                    payload:
+                      text: "grpc-status: 5\r\ngrpc-message: disk 100% full\r\n"
+    expectedResponse:
+      error:
+        code: CODE_NOT_FOUND
+        message: "disk 100% full"
