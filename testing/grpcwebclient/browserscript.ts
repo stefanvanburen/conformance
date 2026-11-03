@@ -87,7 +87,9 @@ function createClient(req: ClientCompatRequest) {
     scheme = "https://";
   }
   const baseUrl = `${scheme}${req.getHost()}:${req.getPort()}`;
-  return new ConformanceServiceClient(baseUrl);
+  return new ConformanceServiceClient(baseUrl, null, {
+    maxReceiveMessageSize: req.getMessageReceiveLimit(),
+  });
 }
 
 function convertStatusCodeToCode(code: StatusCode): Code {
