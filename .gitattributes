@@ -1,2 +1,2 @@
-*_pb.d.ts  linguist-generated=true
-*_pb.js  linguist-generated=true
+internal/gen/** linguist-generated=true
+testing/grpcwebclient/gen/** linguist-generated=true
